@@ -6,16 +6,15 @@ import MacroTesters._
 
 class PrettyPrinterTests extends FunSuite {
   object b extends ir.SimpleAST
-  
-  val Inter = new ir.PrettyPrinter
+  object Print extends ir.PrettyPrinter
   
   def same[A](xy: (A, A)) = assert(xy._1 == xy._2)
   def runSame[A](xy: (b.Rep, A), exp: String) = {
-    same((b.reinterpret(xy._1, Inter)())(0), exp)
+    same((b.reinterpret(xy._1, Print())())(0), exp)
   }
   
   test("Constants") ({
-    
+
     runSame( shallowAndDeep(b){ 42 }, "42" )
     
     runSame( shallowAndDeep(b){ "ok" }, """"ok"""" )
@@ -72,36 +71,48 @@ class PrettyPrinterTests extends FunSuite {
     val act0 = shallowAndDeep(b){ val x = 0; x + 1 }
     val exp0 =
       """
-        |val x: scala.Int = 0
-        |x.+(1)
+        |val x_0: scala.Int = 0
+        |x_0.+(1)
       """.stripMargin.trim
 
     val act1 = shallowAndDeep(b){ ((x: Int) => x + 1)(42) }
     val exp1 =
       """
-        |val x: scala.Int = 42
-        |x.+(1)
+        |val x_0: scala.Int = 42
+        |x_0.+(1)
       """.stripMargin.trim
 
     val act2 = shallowAndDeep(b){ {x: Int => x + 1}.apply(42) }
     val exp2 =
       """
-        |val x: scala.Int = 42
-        |x.+(1)
+        |val x_0: scala.Int = 42
+        |x_0.+(1)
       """.stripMargin.trim
 
     val act3 = shallowAndDeep(b){ val f = (x: Int) => x + 1}
     val exp3 =
       """
-        |val f: scala.Function1[scala.Int, scala.Int] = ((x: scala.Int) => x.+(1))
+        |val f_1: scala.Function1[scala.Int, scala.Int] = ((x_0: scala.Int) => x_0.+(1))
         |()
       """.stripMargin.trim
 
     val act4 = shallowAndDeep(b){ val f = (x: Int) => x + 1; f(42)}
     val exp4 =
       """
-        |val f: scala.Function1[scala.Int, scala.Int] = ((x: scala.Int) => x.+(1))
-        |f(42)
+        |val f_1: scala.Function1[scala.Int, scala.Int] = ((x_0: scala.Int) => x_0.+(1))
+        |f_1(42)
+      """.stripMargin.trim
+
+    val act5 = shallowAndDeep(b){
+      val x = 5
+      val f = (x: Int) => x + 1
+      f(x)
+    }
+    val exp5 =
+      """
+        |val x_0: scala.Int = 5
+        |val f_2: scala.Function1[scala.Int, scala.Int] = ((x_1: scala.Int) => x_1.+(1))
+        |f_2(x_0)
       """.stripMargin.trim
 
     runSame(act0, exp0)
@@ -109,6 +120,7 @@ class PrettyPrinterTests extends FunSuite {
     runSame(act2, exp2)
     runSame(act3, exp3)
     runSame(act4, exp4)
+    runSame(act5, exp5)
   }
 
   test("Variables") {
@@ -122,9 +134,9 @@ class PrettyPrinterTests extends FunSuite {
     val act1 = shallowAndDeep(b){ var x = ("ok" + "ko".reverse).length; x-=1; (x+=1, x, 'lol) }
     val exp1 =
       """
-        |var x: scala.Int = "ok".+(scala.Predef.augmentString("ko").reverse).length()
-        |x = x.-(1)
-        |(x = x.+(1), x, 'lol)
+        |var x_0: scala.Int = "ok".+(scala.Predef.augmentString("ko").reverse).length()
+        |x_0 = x_0.-(1)
+        |(x_0 = x_0.+(1), x_0, 'lol)
       """.stripMargin.trim
 
     runSame(act0, exp0)
@@ -160,27 +172,27 @@ class PrettyPrinterTests extends FunSuite {
     val act1 = shallowAndDeep(b){ var x = 0; lib.Imperative(x += 1)(x) }
     val exp1 =
       """
-        |var x: scala.Int = 0
-        |x = x.+(1)
-        |x
+        |var x_0: scala.Int = 0
+        |x_0 = x_0.+(1)
+        |x_0
       """.stripMargin.trim
 
     val act2 = shallowAndDeep(b){ var x = 0; lib.Imperative(x += 1, x += 1)(x) }
     val exp2 =
       """
-        |var x: scala.Int = 0
-        |x = x.+(1)
-        |x = x.+(1)
-        |x
+        |var x_0: scala.Int = 0
+        |x_0 = x_0.+(1)
+        |x_0 = x_0.+(1)
+        |x_0
       """.stripMargin.trim
 
     val act3 = shallowAndDeep(b){ var x = 0; val modifs = Seq(x += 1, x += 1); lib.Imperative(modifs: _*)(x) }
     val exp3 =
       """
-        |var x: scala.Int = 0
-        |val modifs: scala.collection.Seq[scala.Unit] = scala.collection.Seq[scala.Unit](x = x.+(1), x = x.+(1))
-        |modifs
-        |x
+        |var x_0: scala.Int = 0
+        |val modifs_1: scala.collection.Seq[scala.Unit] = scala.collection.Seq[scala.Unit](x_0 = x_0.+(1), x_0 = x_0.+(1))
+        |modifs_1
+        |x_0
       """.stripMargin.trim
 
     runSame(act0, exp0)
@@ -215,65 +227,65 @@ class PrettyPrinterTests extends FunSuite {
     val act3 = shallowAndDeep(b){ var x = 0; if (true) x += 1 else x += 1; x }
     val exp3 =
       """
-        |var x: scala.Int = 0
-        |if (true) { x = x.+(1) } else { x = x.+(1) }
-        |x
+        |var x_0: scala.Int = 0
+        |if (true) { x_0 = x_0.+(1) } else { x_0 = x_0.+(1) }
+        |x_0
       """.stripMargin.trim
 
     // While
     val act4 = shallowAndDeep(b){ var x = 0; while (x < 3) { x += 1; println(x) }; x }
     val exp4 =
       """
-        |var x: scala.Int = 0
-        |while (x.<(3)) {
-        |  x = x.+(1)
-        |  scala.Predef.println(x)
+        |var x_0: scala.Int = 0
+        |while (x_0.<(3)) {
+        |  x_0 = x_0.+(1)
+        |  scala.Predef.println(x_0)
         |}
-        |x
+        |x_0
       """.stripMargin.trim
 
     val act5 = shallowAndDeep(b){ var x = if (true) 5 else 6; x }
     val exp5 =
       """
-        |var x: scala.Int = if (true) { 5 } else { 6 }
-        |x
+        |var x_0: scala.Int = if (true) { 5 } else { 6 }
+        |x_0
       """.stripMargin.trim
 
     val act6 = shallowAndDeep(b){ var x = 5; if (5 * x > 0) x += 1; x}
     val exp6 =
       s"""
-         |var x: scala.Int = 5
-         |if (5.*(x).>(0)) { x = x.+(1) }
-         |x
+         |var x_0: scala.Int = 5
+         |if (5.*(x_0).>(0)) { x_0 = x_0.+(1) }
+         |x_0
        """.stripMargin.trim
 
     val act7 = shallowAndDeep(b){ var x = Math.random(); if (x > 0) { println("greater!"); x = 0 } else { println("smaller!"); x = 1 }; x }
     val exp7 =
       """
-        |var x: scala.Double = java.lang.Math.random()
-        |if (x.>(0)) {
+        |var x_0: scala.Double = java.lang.Math.random()
+        |if (x_0.>(0)) {
         |  scala.Predef.println("greater!")
-        |  x = 0.0
+        |  x_0 = 0.0
         |} else {
         |  scala.Predef.println("smaller!")
-        |  x = 1.0
+        |  x_0 = 1.0
         |}
-        |x
+        |x_0
       """.stripMargin.trim
 
     val act8 = shallowAndDeep(b) { var i = 0; var y = 100; while (i < 3) { if (y % 10 == 0) { y /= 10; y * y }; i += 1}; y}
     val exp8 =
       """
-        |var i: scala.Int = 0
-        |var y: scala.Int = 100
-        |while (i.<(3)) {
-        |  if (y.%(10).==(0)) {
-        |    y = y./(10)
-        |    y.*(y)
+        |var i_0: scala.Int = 0
+        |var y_1: scala.Int = 100
+        |while (i_0.<(3)) {
+        |  if (y_1.%(10).==(0)) {
+        |    y_1 = y_1./(10)
+        |    y_1.*(y_1)
         |  }
-        |  i = i.+(1)
+        |  i_0 = i_0.+(1)
         |}
-        |y
+        |y_1
       """.stripMargin.trim
 
     val act9 = shallowAndDeep(b) {
@@ -290,17 +302,17 @@ class PrettyPrinterTests extends FunSuite {
     }
     val exp9 =
       """
-        |val A: scala.Array[scala.Array[scala.Int]] = scala.Array[scala.Array[scala.Int]](scala.Array(1, 2, 3), scala.Array(1, 2, 3), scala.Array(1, 2, 3))(scala.reflect.ClassTag[scala.Array[scala.Int]](scala.runtime.ScalaRunTime.arrayClass(int)))
-        |var i: scala.Int = 0
-        |var j: scala.Int = 0
-        |while (i.<(3)) {
-        |  while (j.<(3)) {
-        |    A(i).update(j, i.*(j))
-        |    j = j.+(1)
+        |val A_0: scala.Array[scala.Array[scala.Int]] = scala.Array[scala.Array[scala.Int]](scala.Array(1, 2, 3), scala.Array(1, 2, 3), scala.Array(1, 2, 3))(scala.reflect.ClassTag[scala.Array[scala.Int]](scala.runtime.ScalaRunTime.arrayClass(int)))
+        |var i_1: scala.Int = 0
+        |var j_2: scala.Int = 0
+        |while (i_1.<(3)) {
+        |  while (j_2.<(3)) {
+        |    A_0(i_1).update(j_2, i_1.*(j_2))
+        |    j_2 = j_2.+(1)
         |  }
-        |  i = i.+(1)
+        |  i_1 = i_1.+(1)
         |}
-        |A
+        |A_0
       """.stripMargin.trim
 
     val act10 = shallowAndDeep(b) {
@@ -317,16 +329,16 @@ class PrettyPrinterTests extends FunSuite {
     }
     val exp10 =
       """
-        |var x: scala.Int = 5
-        |if (5.*(x).>(0)) {
-        |  x = x.+(1)
-        |  if (true) { x = x.+(1) }
+        |var x_0: scala.Int = 5
+        |if (5.*(x_0).>(0)) {
+        |  x_0 = x_0.+(1)
+        |  if (true) { x_0 = x_0.+(1) }
         |  else {
-        |    scala.Predef.println(x)
-        |    scala.Predef.println(x)
+        |    scala.Predef.println(x_0)
+        |    scala.Predef.println(x_0)
         |  }
         |}
-        |x
+        |x_0
       """.stripMargin.trim
 
     val act11 = shallowAndDeep(b) {
@@ -346,18 +358,18 @@ class PrettyPrinterTests extends FunSuite {
     }
     val exp11 =
       """
-        |var x: scala.Int = 5
-        |if (5.*(x).>(0)) {
-        |  x = x.+(1)
+        |var x_0: scala.Int = 5
+        |if (5.*(x_0).>(0)) {
+        |  x_0 = x_0.+(1)
         |  if (true) {
-        |    x = x.+(1)
-        |    scala.Predef.println(x)
+        |    x_0 = x_0.+(1)
+        |    scala.Predef.println(x_0)
         |  } else {
-        |    scala.Predef.println(x)
-        |    scala.Predef.println(x)
+        |    scala.Predef.println(x_0)
+        |    scala.Predef.println(x_0)
         |  }
         |}
-        |x
+        |x_0
       """.stripMargin.trim
 
     val act12 = shallowAndDeep(b) {
@@ -374,23 +386,23 @@ class PrettyPrinterTests extends FunSuite {
     }
     val exp12 =
       """
-        |var x: scala.Int = 5
-        |if (5.*(x).>(0)) {
-        |  x = x.+(1)
+        |var x_0: scala.Int = 5
+        |if (5.*(x_0).>(0)) {
+        |  x_0 = x_0.+(1)
         |  if (true) {
-        |    x = x.+(1)
-        |    scala.Predef.println(x)
-        |  } else { scala.Predef.println(x) }
+        |    x_0 = x_0.+(1)
+        |    scala.Predef.println(x_0)
+        |  } else { scala.Predef.println(x_0) }
         |}
-        |x
+        |x_0
       """.stripMargin.trim
 
     val act13 = shallowAndDeep(b){ var x = 10; while (x > 0) { x = x - 1 }; x }
     val exp13 =
       """
-        |var x: scala.Int = 10
-        |while (x.>(0)) { x = x.-(1) }
-        |x
+        |var x_0: scala.Int = 10
+        |while (x_0.>(0)) { x_0 = x_0.-(1) }
+        |x_0
       """.stripMargin.trim
 
     val act14 = shallowAndDeep(b){
@@ -402,15 +414,16 @@ class PrettyPrinterTests extends FunSuite {
       }
       x
     }
+    // FIXME why does y_ start with count 4 and not 1?
     val exp14 =
       """
-        |var x: scala.Int = 10
-        |while (x.>(0)) {
-        |  var y: scala.Int = 10
-        |  while (y.>(0)) { y = y.-(1) }
-        |  x = x.-(1)
+        |var x_0: scala.Int = 10
+        |while (x_0.>(0)) {
+        |  var y_4: scala.Int = 10
+        |  while (y_4.>(0)) { y_4 = y_4.-(1) }
+        |  x_0 = x_0.-(1)
         |}
-        |x
+        |x_0
       """.stripMargin.trim
 
     runSame(act0, exp0)

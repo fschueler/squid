@@ -6,10 +6,29 @@ import squid.lang.Base
 import meta.RuntimeUniverseHelpers._
 import sru._
 
-class PrettyPrinter extends Base with TraceDebug {
+trait PrettyPrinter extends Base with TraceDebug {
+
+  private val indent = 2
+  private val SquidLib = "squid.lib.package"
+  private var bindVarCounter = 0
+
+  def apply(): PrettyPrinter = {
+    bindVarCounter = 0
+    this
+  }
+
+  private def nextID: Int = {
+    val tmp = bindVarCounter
+    bindVarCounter += 1
+    tmp
+  }
+
+  case class BoundValue(name: String, id: Int) {
+    override def toString: String = s"${name}_$id"
+  }
 
   override type Rep = Int => String
-  override type BoundVal = (String, TypeRep) // (name, type)
+  override type BoundVal = (BoundValue, TypeRep) // ((name, id), type)
   override type TypeRep = TypSymbol
   type TypSymbol = String
   type MtdSymbol = String
@@ -17,9 +36,6 @@ class PrettyPrinter extends Base with TraceDebug {
   def repEq(a: Rep, b: Rep): Boolean = a == b
 
   def typLeq(a: TypeRep, b: TypeRep): Boolean = a == b
-
-  val indent = 2
-  val SquidLib = "squid.lib.package"
 
   private def removeBrackets(exp: String): String = exp.drop(1).dropRight(1)
 
@@ -32,9 +48,9 @@ class PrettyPrinter extends Base with TraceDebug {
     .replace("\"", "\\\"")
     .replace("\\", "\\\\")
 
-  override def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal = (name, typ)
+  override def bindVal(name: String, typ: TypeRep, annots: List[Annot]): BoundVal = (BoundValue(name, nextID), typ)
 
-  override def readVal(v: BoundVal): Rep = offset => v._1 // get the name as string
+  override def readVal(v: BoundVal): Rep = offset => v._1.toString() // get the name as string
 
   override def const(value: Any): Rep = offset => value match {
     case _: Char => s"""'$value'"""
