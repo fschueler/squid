@@ -33,7 +33,11 @@ class ClassEmbeddingTests extends MyFunSuite {
   test("Basics") {
     
     Emb.Object.Defs.foo.value eqt code"(arg: Int) => MyClass.foo(arg.toLong).toInt"
-    
+
+    Emb.Class.Defs.varargFoo.value eqt code"(mc: MyClass) => (args: Seq[Int]) => args.sum + 1"
+
+    Emb.Object.Defs.varargFoo.value eqt code"(args: Seq[Int]) => args.sum + 1"
+
     Emb.Object.Defs.swap[Int] eqt code"(arg: (Int,Int)) => (n: Symbol) => n -> arg.swap"
     
     Emb.Class.Defs.foo.value eqt Emb.Class.Defs.foz.value
@@ -41,32 +45,52 @@ class ClassEmbeddingTests extends MyFunSuite {
     Emb.Class.Defs.foo.value eqt code"(mc: MyClass) => (arg: Int) => mc.baz + arg"
     
     OrphanObject.embedIn(TestDSL).Object.Defs.test[Int] eqt code"(n:Int) => (n,n)"
-    
+
+    OrphanObject.embedIn(TestDSL).Object.Defs.varargFoo.value eqt code"(args: Seq[Int]) => args.sum + 1"
+
+    OrphanObject.embedIn(TestDSL).Object.Defs.varargBar[Int] eqt code"(args: Seq[Int]) => args.length"
+
   }
-  
+
   test("Basic Lowering") {
-    
+
     val Desugaring = new TestDSL.Desugaring with TopDownTransformer
     val BindNorm = new TestDSL.SelfTransformer with BindingNormalizer with TopDownTransformer // or should it use `BottomUpTransformer`?
-    
+
     import MyClass._
-    
+
+    val ds = code"varargFoo(1, 2, 3) + 5" transformWith Desugaring
+
+    ds eqt
+      code"""{((xs_0: scala.collection.Seq[scala.Int]) =>
+                xs_0.sum[scala.Int](scala.math.Numeric.IntIsIntegral).+(1)
+             ).apply(scala.collection.Seq.apply(1, 2, 3)).+(5)
+      }"""
+
+    ds transformWith BindNorm eqt
+      code"""{
+            ({val xs_0_0 = scala.collection.Seq.apply[scala.Int](1, 2, 3);
+                xs_0_0.sum[scala.Int](scala.math.Numeric.IntIsIntegral).+(1)
+              }).+(5)
+            }
+          """
+
     code"foo(42) * 2" transformWith Desugaring eqt
       code"{val arg = 42; foo(arg.toLong).toInt} * 2"
-    
+
     code"foobar(42, .5) -> 666" transformWith Desugaring eqt
       //(ir"((a: Int, b: Double) => bar(foo(a))(b))(42, .5) -> 666" transformWith Desugaring) // FIXME (names of multi-param lambda...)
       (code"((x: Int, y: Double) => bar(foo(x))(y))(42, .5) -> 666" transformWith Desugaring)
-    
+
     code"swap(foobar(42,.5),11)('ok)" transformWith Desugaring eqt
       code"((x: (AnyVal,AnyVal)) => (name: Symbol) => name -> x.swap)(${
         code"${Emb.Object.Defs.foobar.value}(42,.5)" transformWith Desugaring
       }, 11)('ok)"
-    
-    
-    
+
+
+
     val desugared = code"val mc = new MyClass; mc foz 42" transformWith Desugaring
-    
+
     desugared eqt code"""{
       val mc_0: squid.classembed.MyClass = new squid.classembed.MyClass();
       ({
@@ -82,20 +106,20 @@ class ClassEmbeddingTests extends MyFunSuite {
         ((x_2: scala.Int) => __self_1.baz.+(x_2))
       })(42)
     }"""
-    
+
     val desugaredNormalized = desugared transformWith BindNorm
-    
+
     desugaredNormalized eqt result
-    
+
     desugaredNormalized eqt code"""{
       val mc_0: squid.classembed.MyClass = new squid.classembed.MyClass();
       val a_1: squid.classembed.MyClass = mc_0;
       val b_2: Int = 42;
       a_1.baz.+(b_2)
     }"""
-    
+
   }
-  
+
   test("Online Lowering") {
     object DSLBase extends SimpleAST with OnlineDesugaring {
       override val warnRecursiveEmbedding = false
@@ -103,12 +127,12 @@ class ClassEmbeddingTests extends MyFunSuite {
     }
     import DSLBase.Predef._
     import MyClass._
-    
+
     eqtBy(code"foo(42) * 2",
       code"{val arg = 42; foo(arg.toLong).toInt} * 2")(_ =~= _)
     assert(code"foo(42.toLong) * 2" =~=
       code"foo(42.toLong) * 2")
-    
+
     // FIXME now (that StaticOptimizer uses calls to postProcess) this makes a StackOverflow; TODO properly detect it...
     /*
     eqtBy(ir"recLol(42)",
@@ -126,15 +150,15 @@ class ClassEmbeddingTests extends MyFunSuite {
         ))
       }+1)(42)")(_ =~= _)
     */
-    
+
     code"recLolParam(42)('ko)" match {
       case code"((x: Int) => (r: Symbol) => if (x <= 0) $a else $b : Symbol)(42)('ko)" =>
     }
-    
+
   }
-  
+
   test("Online Lowering and Normalization") {
-    
+
     //object DSLBase extends SimpleAST with OnlineDesugaring with BindingNormalizer { // Error:(28, 12) object DSLBase inherits conflicting members
     object DSLBase extends SimpleAST with OnlineOptimizer { self =>
       object BindingNormalizer extends SelfTransformer with BindingNormalizer
@@ -143,7 +167,7 @@ class ClassEmbeddingTests extends MyFunSuite {
     }
     import DSLBase.Predef._
     import MyClass._
-    
+
     eqtBy(code"swap(foobarCurried(42)(.5),11)('ok)", code"""{
       val a_0: scala.Tuple2[scala.Double, scala.Int] = scala.Tuple2.apply[scala.Double, scala.Int]({
         val a_1: Int = 42;
@@ -156,24 +180,24 @@ class ClassEmbeddingTests extends MyFunSuite {
       val b_4: scala.Symbol = scala.Symbol.apply("ok");
       scala.Predef.ArrowAssoc[scala.Symbol](b_4).->[scala.Tuple2[scala.AnyVal, scala.AnyVal]](a_0.swap)
     }""")(_ =~= _)
-    
+
   }
-  
+
   test("Geom") {
     import geom._
     object DSLBase extends SimpleAST with OnlineDesugaring {
       embed(Vector, Matrix)
     }
     import DSLBase.Predef._
-    
+
     eqtBy(code"Vector.origin(3).arity", code"val v = Vector.origin(3); v.coords.length")(_ =~= _)
-    
+
     // TODO (vararg)
     //println(ir"Vector.apply(1,2,3)")
     //val Emb = Vector.EmbeddedIn(TestDSL2); println(Emb.Object.Defs.apply.value)
-    
+
   }
-  
+
   test("Generic Class Embedding") {
     
     val Emb = MyGenClass.embedIn(TestDSL)
