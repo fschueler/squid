@@ -45,7 +45,19 @@ trait Lowering extends Transformer {
               val ruh = RuntimeUniverseHelpers
               val functionArity = reps.size + vreps.size
               val typ = r.typ.typeArgs.last
-              val varargsAsSeq = base.rep(MethodApp(base.rep(StaticModule("scala.collection.Seq")), ruh.FunctionType.symbol(vreps.size).toType member ruh.sru.TermName("apply") asMethod, Nil, Args(vreps:_*)::Nil, ruh.SequenceType.apply(typ)))
+              // transform repeated args into a Seq[typ].apply(vargs)
+              val varargsAsSeq = methodApp(
+                staticModule("scala.collection.Seq"),
+                loadMtdSymbol(
+                  loadTypSymbol("scala.collection.generic.GenericCompanion"),
+                  "apply",
+                  None),
+                typ :: Nil,
+                Args()(vreps: _*) :: Nil,
+                staticTypeApp(
+                  loadTypSymbol("scala.collection.Seq"),
+                  typ :: Nil)
+              )
               base.rep(MethodApp(r, ruh.FunctionType.symbol(functionArity).toType member ruh.sru.TermName("apply") asMethod, Nil, Args((reps :+ varargsAsSeq):_* )::Nil, typ))
           }
           ascribe(res, retTyp) // We ascribe so that if the body is, e.g., `???`, we don't end up with ill-typed code. 
