@@ -59,6 +59,11 @@ trait Lowering extends Transformer {
                   typ :: Nil)
               )
               base.rep(MethodApp(r, ruh.FunctionType.symbol(functionArity).toType member ruh.sru.TermName("apply") asMethod, Nil, Args((reps :+ varargsAsSeq):_* )::Nil, typ))
+            case (r, avs@ArgsVarargSpliced(Args(reps @ _*), vreps)) =>
+              val ruh = RuntimeUniverseHelpers
+              val typ = r.typ.typeArgs.last
+              val functionArity = reps.size + 1 // number arguments plus one Seq argument
+              base.rep(MethodApp(r, ruh.FunctionType.symbol(functionArity).toType member ruh.sru.TermName("apply") asMethod, Nil, Args((reps :+ vreps) :_*)::Nil, typ))
           }
           ascribe(res, retTyp) // We ascribe so that if the body is, e.g., `???`, we don't end up with ill-typed code. 
         case Left(Recursive) =>

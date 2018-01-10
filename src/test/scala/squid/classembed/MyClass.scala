@@ -33,6 +33,9 @@ class MyClass {
   @phase('Sugar)
   def varargFoo(xs: Int*): Int = xs.sum + 1
 
+  @phase('Sugar)
+  def argVarargFoo(s: String, xs: Int*): Int = s.length + xs.sum + 1
+
   @overloadEncoding
   def lol(a: Int = 0, b: Int, c: String, d: String = "3"): String = a + b + c + d
   
@@ -45,6 +48,9 @@ object MyClass extends App with ir.SquidObject {
 
   @phase('Sugar)
   def varargFoo(xs: Int*): Int = xs.sum + 1
+
+  @phase('Sugar)
+  def argVarargFoo(s: String, xs: Int*): Int = s.length + xs.sum + 1
 
   def foo(x: Long): Long = x + 1
   def foo(x: Float): Float = x + 1
@@ -78,7 +84,7 @@ object OrphanObject extends ir.SquidObject {
 
   def varargFoo(xs: Int*): Int = xs.sum + 1
 
-  def varargBar[A](args: A*): Int = args.length
+  def argVarargFoo(s: String, xs: Int*): Int = s.length + xs.sum + 1
 }
 
 
