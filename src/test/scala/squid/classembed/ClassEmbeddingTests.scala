@@ -193,9 +193,10 @@ class ClassEmbeddingTests extends MyFunSuite {
     
     eqtBy(code"Vector.origin(3).arity", code"val v = Vector.origin(3); v.coords.length")(_ =~= _)
     
-    // TODO (vararg)
-    //println(ir"Vector.apply(1,2,3)")
-    //val Emb = Vector.EmbeddedIn(TestDSL2); println(Emb.Object.Defs.apply.value)
+    val Emb = Vector.EmbeddedIn(DSLBase)
+    eqtBy(Emb.Object.Defs.apply.value, code"(xs:Seq[Double]) => new Vector(List(xs:_*))")(_ =~= _)
+    
+    eqtBy(code"Vector.apply(1,2,3)", code"val vals = Seq(1.0,2.0,3.0); new Vector(List(vals:_*))")(_ =~= _)
     
   }
   
