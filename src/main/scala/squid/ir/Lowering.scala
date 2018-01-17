@@ -15,7 +15,7 @@
 package squid
 package ir
 
-import squid.utils.meta.RuntimeUniverseHelpers
+import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 import utils._
 
 trait Lowering extends Transformer {
@@ -34,18 +34,25 @@ trait Lowering extends Transformer {
       val fullTargs = self.typ.tpe.typeArgs.map(new TypeRep(_)) ++ targs // FIXME should use `baseType`! the type of `self` could be a subtype with different type arguments...
       //println(s"Getting $sym in ${self.typ.tpe} fullTargs $fullTargs")
       methodDef(sym, fullTargs) match {
+          
         case Right(Code(r)) =>
           //println(s"Lowering $ma with ${r|>showRep}")
           val res = fullArgss.foldLeft(r) {
+              
             case (r, Args(reps @ _*)) =>
-              val ruh = RuntimeUniverseHelpers
               val typ = r.typ.typeArgs.last // TODO be careful that a method implemented without parameter list can implement a method with an empty list (eg toString), which can make this crash
               base.rep(MethodApp(r, ruh.FunctionType.symbol(reps.size).toType member ruh.sru.TermName("apply") asMethod, Nil, Args(reps:_*)::Nil, typ))
+              
             case (r, ArgsVarargs(Args(reps @ _*), Args(vreps @ _*))) =>
-              val ruh = RuntimeUniverseHelpers
-              val functionArity = reps.size + vreps.size
-              val typ = r.typ.typeArgs.last
-              // transform repeated args into a Seq[typ].apply(vargs)
+              
+              val functionArity = reps.size + 1 // the varargs are wrapped in a Seq, which is only one argument
+              
+              // It's a little tricky to know what the type of the formal arguments to the method should be, based on the 
+              // type arguments given to the method invocation; thankfully Seq is covariant, so since we can assume the 
+              // code is well-typed, it is sufficient to make a Seq of the least upper bound type of the arguments.
+              val typ = new TypeRep(ruh.sru.lub(vreps.iterator.map(_.typ.tpe).toList))
+              
+              // transform repeated args into a Seq.apply[typ](vargs)
               val varargsAsSeq = methodApp(
                 staticModule("scala.collection.Seq"),
                 loadMtdSymbol(
@@ -58,16 +65,18 @@ trait Lowering extends Transformer {
                   loadTypSymbol("scala.collection.Seq"),
                   typ :: Nil)
               )
+              
               base.rep(MethodApp(r, ruh.FunctionType.symbol(functionArity).toType member ruh.sru.TermName("apply") asMethod, Nil, Args((reps :+ varargsAsSeq):_* )::Nil, typ))
+              
             case (r, avs@ArgsVarargSpliced(Args(reps @ _*), vreps)) =>
-              val ruh = RuntimeUniverseHelpers
               val typ = r.typ.typeArgs.last
               val functionArity = reps.size + 1 // number arguments plus one Seq argument
               base.rep(MethodApp(r, ruh.FunctionType.symbol(functionArity).toType member ruh.sru.TermName("apply") asMethod, Nil, Args((reps :+ vreps) :_*)::Nil, typ))
+              
           }
           ascribe(res, retTyp) // We ascribe so that if the body is, e.g., `???`, we don't end up with ill-typed code. 
         case Left(Recursive) =>
-          if (warnRecursiveEmbedding) System.err.println(s"Warning: Recursive value ${sym fullName} cannot be fully embedded.")
+          if (warnRecursiveEmbedding) System.err.println(s"Warning: Recursive value ${sym fullName} cannot be fully lowered/inlined.")
           rep
         case Left(Missing) =>
           System.err.println(s"Warning: Could not find definition for lowered method: ${sym fullName}${sym typeSignature} @ phase ${ma.phase get}") // TODO B/W
