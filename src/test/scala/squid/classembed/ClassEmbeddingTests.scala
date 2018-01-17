@@ -48,7 +48,8 @@ class ClassEmbeddingTests extends MyFunSuite {
 
     OrphanObject.embedIn(TestDSL).Object.Defs.varargFoo.value eqt code"(args: Seq[Int]) => args.sum + 1"
 
-    OrphanObject.embedIn(TestDSL).Object.Defs.varargBar[Int] eqt code"(args: Seq[Int]) => args.length"
+    //OrphanObject.embedIn(TestDSL).Object.Defs.varargBar[Int] eqt code"(args: Seq[Int]) => args.length"
+    // ^ does not compile! there is no such varargBar defined...
 
   }
 
@@ -191,11 +192,12 @@ class ClassEmbeddingTests extends MyFunSuite {
     import DSLBase.Predef._
 
     eqtBy(code"Vector.origin(3).arity", code"val v = Vector.origin(3); v.coords.length")(_ =~= _)
-
-    // TODO (vararg)
-    //println(ir"Vector.apply(1,2,3)")
-    //val Emb = Vector.EmbeddedIn(TestDSL2); println(Emb.Object.Defs.apply.value)
-
+    
+    val Emb = Vector.EmbeddedIn(DSLBase)
+    eqtBy(Emb.Object.Defs.apply.value, code"(xs:Seq[Double]) => new Vector(List(xs:_*))")(_ =~= _)
+    
+    eqtBy(code"Vector.apply(1,2,3)", code"val vals = Seq(1.0,2.0,3.0); new Vector(List(vals:_*))")(_ =~= _)
+    
   }
 
   test("Generic Class Embedding") {
