@@ -182,13 +182,14 @@ class ClassEmbedding(override val c: whitebox.Context) extends QuasiMacros(c) { 
     val clsDefTparams = clsDef.tparams map (stripVariance(_))
     
     // Makes the parameters acceptable for being lambda parameters: removes the `rhs`
+    // TODO handle by-name
     def fixValDef(vd: ValDef) = vd.tpt match {
       case AppliedTypeTree(Select(_, TypeName("<repeated>")), args) =>
         val newTypeTree = tq"Seq[..$args]"
         ValDef(vd.mods, vd.name, newTypeTree, EmptyTree)
 
       case _ => ValDef(vd.mods, vd.name, vd.tpt, EmptyTree)
-    } // TODO handle by-name and repeated
+    }
     
     val (objDefs, objMirrorDefs, objRefs) = allDefs collect {
       case inClass -> ValOrDefDef(mods, name, tparams, vparamss, tpt, rhs) if name != termNames.CONSTRUCTOR && rhs.nonEmpty => // TODO sthg about parameter accessors?

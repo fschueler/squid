@@ -50,7 +50,7 @@ trait Lowering extends Transformer {
               // It's a little tricky to know what the type of the formal arguments to the method should be, based on the 
               // type arguments given to the method invocation; thankfully Seq is covariant, so since we can assume the 
               // code is well-typed, it is sufficient to make a Seq of the least upper bound type of the arguments.
-              val typ = new TypeRep(ruh.sru.lub(vreps.iterator.map(_.typ.tpe).toList))
+              val seqTyp = new TypeRep(ruh.sru.lub(vreps.iterator.map(_.typ.tpe).toList))
               
               // transform repeated args into a Seq.apply[typ](vargs)
               val varargsAsSeq = methodApp(
@@ -59,20 +59,25 @@ trait Lowering extends Transformer {
                   loadTypSymbol("scala.collection.generic.GenericCompanion"),
                   "apply",
                   None),
-                typ :: Nil,
+                seqTyp :: Nil,
                 Args()(vreps: _*) :: Nil,
                 staticTypeApp(
                   loadTypSymbol("scala.collection.Seq"),
-                  typ :: Nil)
+                  seqTyp :: Nil)
               )
+
+              // To using r.typ.typeArgs.last: The reason such a type works as the method's return type is because at
+              // this point r has to be a function type, whose last type argument indicates its return type.
+              val returnTyp = r.typ.typeArgs.last
               
-              base.rep(MethodApp(r, ruh.FunctionType.symbol(functionArity).toType member ruh.sru.TermName("apply") asMethod, Nil, Args((reps :+ varargsAsSeq):_* )::Nil, typ))
+              base.rep(MethodApp(r, ruh.FunctionType.symbol(functionArity).toType member ruh.sru.TermName("apply") asMethod, Nil, Args((reps :+ varargsAsSeq):_* )::Nil, returnTyp))
               
-            case (r, avs@ArgsVarargSpliced(Args(reps @ _*), vreps)) =>
-              val typ = r.typ.typeArgs.last
+            case (r, ArgsVarargSpliced(Args(reps @ _*), vreps)) =>
+              val returnTyp = r.typ.typeArgs.last
               val functionArity = reps.size + 1 // number arguments plus one Seq argument
-              base.rep(MethodApp(r, ruh.FunctionType.symbol(functionArity).toType member ruh.sru.TermName("apply") asMethod, Nil, Args((reps :+ vreps) :_*)::Nil, typ))
-              
+              val fn = ruh.FunctionType.symbol(functionArity).toType member ruh.sru.TermName("apply") asMethod
+
+              base.rep(MethodApp(r, fn, Nil, Args((reps :+ vreps) :_*)::Nil, returnTyp))
           }
           ascribe(res, retTyp) // We ascribe so that if the body is, e.g., `???`, we don't end up with ill-typed code. 
         case Left(Recursive) =>

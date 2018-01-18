@@ -60,6 +60,15 @@ class ClassEmbeddingTests extends MyFunSuite {
     
     import MyClass._
     
+    // arg-vararg
+    code"""argVarargFoo("bar", 1, 2, 3) * 2""" transformWith Desugaring eqt
+      code"""((s: String, xs: Seq[Int]) => s.length + xs.sum + 1)("bar", Seq(1, 2, 3)) * 2"""
+
+    // arg-varargs spliced
+    code"""val args = Seq(1, 2, 3); argVarargFoo("bar", args:_*) * 2""" transformWith Desugaring eqt
+      code"""val args = Seq(1, 2, 3); ((s: String, xs: Seq[Int]) => s.length + xs.sum + 1)("bar", args) * 2"""
+
+    // varargs
     val ds = code"varargFoo(1, 2, 3) + 5" transformWith Desugaring
 
     ds eqt

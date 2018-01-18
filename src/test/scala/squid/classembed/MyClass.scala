@@ -56,7 +56,6 @@ object MyClass extends App with ir.SquidObject {
   def foo(x: Float): Float = x + 1
   def foo(x: String): String = x + 1
   def foo(x: Double): Double = x + 1
-
   
   @phase('Sugar)
   def recLol(x: Int): Int = if (x <= 0) 0 else recLol(x-1)+1
