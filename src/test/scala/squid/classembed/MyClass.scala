@@ -29,8 +29,13 @@ class MyClass {
   def foo(x: Int) = baz + x
   def fooRef(x: Int) = this.foo(x)
   val baz = MyClass.swap(1,2)('lol)._2._2
-  
-  
+
+  @phase('Sugar)
+  def varargFoo(xs: Int*): Int = xs.sum + 1
+
+  @phase('Sugar)
+  def argVarargFoo(s: String, xs: Int*): Int = s.length + xs.sum + 1
+
   @overloadEncoding
   def lol(a: Int = 0, b: Int, c: String, d: String = "3"): String = a + b + c + d
   
@@ -40,10 +45,18 @@ object MyClass extends App with ir.SquidObject {
   
   @phase('Sugar)
   def foo(x: Int): Int = MyClass.foo(x.toLong).toInt
+
+  @phase('Sugar)
+  def varargFoo(xs: Int*): Int = xs.sum + 1
+
+  @phase('Sugar)
+  def argVarargFoo(s: String, xs: Int*): Int = s.length + xs.sum + 1
+
   def foo(x: Long): Long = x + 1
   def foo(x: Float): Float = x + 1
   def foo(x: String): String = x + 1
   def foo(x: Double): Double = x + 1
+
   
   @phase('Sugar)
   def recLol(x: Int): Int = if (x <= 0) 0 else recLol(x-1)+1
@@ -68,6 +81,10 @@ object MyClass extends App with ir.SquidObject {
 @embed
 object OrphanObject extends ir.SquidObject {
   def test[A](a: A) = (a,a)
+
+  def varargFoo(xs: Int*): Int = xs.sum + 1
+
+  def argVarargFoo(s: String, xs: Int*): Int = s.length + xs.sum + 1
 }
 
 

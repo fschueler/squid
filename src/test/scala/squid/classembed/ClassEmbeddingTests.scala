@@ -34,6 +34,14 @@ class ClassEmbeddingTests extends MyFunSuite {
     
     Emb.Object.Defs.foo.value eqt code"(arg: Int) => MyClass.foo(arg.toLong).toInt"
     
+    Emb.Class.Defs.varargFoo.value eqt code"(mc: MyClass) => (args: Seq[Int]) => args.sum + 1"
+
+    Emb.Object.Defs.varargFoo.value eqt code"(args: Seq[Int]) => args.sum + 1"
+
+    Emb.Class.Defs.argVarargFoo.value eqt code"(mc: MyClass) => (s: String, args: Seq[Int]) => s.length + args.sum + 1"
+
+    Emb.Object.Defs.argVarargFoo.value eqt code"(s: String, args: Seq[Int]) => s.length + args.sum + 1"
+
     Emb.Object.Defs.swap[Int] eqt code"(arg: (Int,Int)) => (n: Symbol) => n -> arg.swap"
     
     Emb.Class.Defs.foo.value eqt Emb.Class.Defs.foz.value
@@ -42,6 +50,7 @@ class ClassEmbeddingTests extends MyFunSuite {
     
     OrphanObject.embedIn(TestDSL).Object.Defs.test[Int] eqt code"(n:Int) => (n,n)"
     
+    OrphanObject.embedIn(TestDSL).Object.Defs.varargFoo.value eqt code"(args: Seq[Int]) => args.sum + 1"
   }
   
   test("Basic Lowering") {
@@ -51,6 +60,22 @@ class ClassEmbeddingTests extends MyFunSuite {
     
     import MyClass._
     
+    val ds = code"varargFoo(1, 2, 3) + 5" transformWith Desugaring
+
+    ds eqt
+      code"""{((xs_0: scala.collection.Seq[scala.Int]) =>
+                xs_0.sum[scala.Int](scala.math.Numeric.IntIsIntegral).+(1)
+             ).apply(scala.collection.Seq.apply(1, 2, 3)).+(5)
+      }"""
+
+    ds transformWith BindNorm eqt
+      code"""{
+            ({val xs_0_0 = scala.collection.Seq.apply[scala.Int](1, 2, 3);
+                xs_0_0.sum[scala.Int](scala.math.Numeric.IntIsIntegral).+(1)
+              }).+(5)
+            }
+          """
+
     code"foo(42) * 2" transformWith Desugaring eqt
       code"{val arg = 42; foo(arg.toLong).toInt} * 2"
     

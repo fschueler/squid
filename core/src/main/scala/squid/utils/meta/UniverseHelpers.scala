@@ -99,7 +99,16 @@ trait UniverseHelpers[U <: scala.reflect.api.Universe] {
       case DefDef(mods, name, tparams, vparams, tpt, rhs) => Some(mods, name, tparams, vparams, tpt, rhs)
     }
   }
-  
+
+  object SequenceType {
+    val seqSym = typeOf[Seq[Any]].typeSymbol.asType
+
+    val scalaPackage = seqSym.owner.asType.toType
+
+    def apply(tpe: Type) = internal.typeRef(scalaPackage, seqSym, List(tpe))
+
+  }
+
   object FunctionType { // TODO complete with all functions types!
     
     val Fun0Sym = typeOf[() => Any].typeSymbol.asType
